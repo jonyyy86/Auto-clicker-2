@@ -1,1 +1,71 @@
 
+name: Build OSCA GREΔD iOS
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, master]
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate project
+        run: |
+          cat > project.yml <<'YAML'
+          name: OSCAGREAD
+          options:
+            bundleIdPrefix: com.oscagread
+            deploymentTarget:
+              iOS: "16.0"
+          settings:
+            base:
+              PRODUCT_BUNDLE_IDENTIFIER: com.oscagread.app
+              SWIFT_VERSION: 5.0
+              INFOPLIST_FILE: "OSCA GREΔD/Info.plist"
+              TARGETED_DEVICE_FAMILY: "1,2"
+              GENERATE_INFOPLIST_FILE: NO
+          targets:
+            OSCAGREAD:
+              type: application
+              platform: iOS
+              sources:
+                - path: "OSCA GREΔD"
+              settings:
+                base:
+                  PRODUCT_NAME: "OSCA GREΔD"
+                  PRODUCT_BUNDLE_IDENTIFIER: com.oscagread.app
+          YAML
+          xcodegen generate
+
+      - name: Build IPA
+        run: |
+          xcodebuild \
+            -project OSCAGREAD.xcodeproj \
+            -scheme OSCAGREAD \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build/DerivedData \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+      - name: Package IPA
+        run: |
+          mkdir -p build/Payload
+          cp -R "build/DerivedData/Build/Products/Release-iphoneos/OSCA GREΔD.app" build/Payload/
+          cd build
+          zip -r OSCA-GREAD-unsigned.ipa Payload
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: OSCA-GREAD-unsigned-IPA
+          path: build/OSCA-GREAD-unsigned.ipa
+
